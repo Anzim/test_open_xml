@@ -99,6 +99,21 @@ namespace OpenOfficeWpfApp
 
         }
 
+        private void ChangeMainDocumentPart2(MainDocumentPart mainDocumentPart1)
+        {
+            Document document1 = mainDocumentPart1.Document;
+
+            Body body1 = document1.GetFirstChild<Body>();
+
+            Paragraph paragraph1 = body1.Elements<Paragraph>().ElementAt(3);
+            Paragraph paragraph2 = body1.Elements<Paragraph>().ElementAt(4);
+            Paragraph paragraph3 = body1.Elements<Paragraph>().ElementAt(5);
+            Paragraph paragraph4 = body1.Elements<Paragraph>().ElementAt(6);
+            SectionProperties sectionProperties1 = body1.GetFirstChild<SectionProperties>();
+
+            Run run1 = paragraph1.Elements<Run>().ElementAt(1);
+        }
+
         private void ChangeMainDocumentPart1(MainDocumentPart mainDocumentPart1)
         {
             Document document1 = mainDocumentPart1.Document;
