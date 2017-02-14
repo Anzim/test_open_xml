@@ -16,7 +16,7 @@ namespace NUnit.Tests1
         {
             var testOfficePackage = new ChangeTestOfficeFileClass();
             testOfficePackage.ChangePackage(@"C:\Backup\test4.docx");
-            //Assert.Pass("ChangePackage passing test");
+            //Assert.Pass("ChangePackage passing test (no exception");
         }
     }
 }
