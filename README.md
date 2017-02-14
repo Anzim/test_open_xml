@@ -1,7 +1,7 @@
 # test_open_xml
 A desktop application based on .NET platform.
-Program opens word document 'test.docx' and operate with XML data inside this file. 
-All changes must be applied in the same file, so modified 'test.docx' is a result of executing your program.
+Program opens word document 'test.docx' and operates with XML data inside this file. 
+All changes are applied in the same file, so modified 'test.docx' is a result of executing this program.
 What it does:
  - adds a row "{FirstName} {LastName}, {City}" after first paragraph, where params are my personal info;
  - all blue symbols are changed to green color;
