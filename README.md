@@ -1,4 +1,5 @@
 # test_open_xml
+#OpenOfficeWpfApp
 A desktop application based on .NET platform.
 Program opens word document 'test.docx' and operates with XML data inside this file. 
 All changes are applied in the same file, so modified 'test.docx' is a result of executing this program.
@@ -9,3 +10,4 @@ What it does:
  - on sheet #2 adds table with the following structure - http://1.bp.blogspot.com/-5RDua4sju1M/TWNzHKtbVAI/AAAAAAAAADI/Dacxd9hVqtw/s1600/timeTable.gif
 
 It uses Open XML SDK 
+test.docx is in "data" folder
