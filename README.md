@@ -11,3 +11,4 @@ What it does:
 
 It uses Open XML SDK 
 test.docx is in "data" folder
+Istall Open XML SDK 2.5 for Microsoft Office first: https://www.microsoft.com/en-us/download/details.aspx?id=30425
