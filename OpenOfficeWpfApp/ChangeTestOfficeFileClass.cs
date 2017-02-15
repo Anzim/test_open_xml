@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
 using DocumentFormat.OpenXml.Packaging;
-using Ap = DocumentFormat.OpenXml.ExtendedProperties;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Wordprocessing;
 
@@ -11,13 +10,85 @@ namespace OpenOfficeWpfApp
 {
     public class ChangeTestOfficeFileClass
     {
-        private WordprocessingDocument document;
+        private readonly IDictionary<string, OpenXmlPart> _uriPartDictionary = new Dictionary<string, OpenXmlPart>();
+        private WordprocessingDocument _document;
 
         public void ChangePackage(string filePath)
         {
-            using (document = WordprocessingDocument.Open(filePath, true))
+            using (_document = WordprocessingDocument.Open(filePath, true))
             {
-                ChangeMainDocumentPart(document.MainDocumentPart);
+                ChangeParts();
+            }
+        }
+
+        private void ChangeParts()
+        {
+            //Stores the referrences to all the parts in a dictionary.
+            BuildUriPartDictionary();
+            ChangeMainDocumentPart(_document.MainDocumentPart);
+            ChangeStyleDefinitionsPart1((StyleDefinitionsPart)_uriPartDictionary["/word/styles.xml"]);
+        }
+
+        private void BuildUriPartDictionary()
+        {
+            Queue<OpenXmlPartContainer> queue = new Queue<OpenXmlPartContainer>();
+            queue.Enqueue(_document);
+            while (queue.Count > 0)
+            {
+                foreach (var part in queue.Dequeue().Parts)
+                {
+                    if (!_uriPartDictionary.Keys.Contains(part.OpenXmlPart.Uri.ToString()))
+                    {
+                        _uriPartDictionary.Add(part.OpenXmlPart.Uri.ToString(), part.OpenXmlPart);
+                        queue.Enqueue(part.OpenXmlPart);
+                    }
+                }
+            }
+        }
+
+        private void ChangeStyleDefinitionsPart1(StyleDefinitionsPart styleDefinitionsPart1)
+        {
+            var styles = styleDefinitionsPart1.Styles;
+
+            var tableContentsStyle = styles.Elements<Style>()
+                .FirstOrDefault(s => s.StyleName?.Val?.Value == "TableContents");
+            if (tableContentsStyle == null)
+            {
+                tableContentsStyle = new Style()
+                {
+                    Type = StyleValues.Paragraph, StyleId = "TableContents"
+                };
+                StyleName styleName1 = new StyleName() { Val = "Table Contents" };
+                BasedOn basedOn1 = new BasedOn() { Val = "Normal" };
+                PrimaryStyle primaryStyle1 = new PrimaryStyle();
+                StyleParagraphProperties styleParagraphProperties5 = new StyleParagraphProperties();
+                StyleRunProperties styleRunProperties2 = new StyleRunProperties();
+
+                tableContentsStyle.Append(styleName1);
+                tableContentsStyle.Append(basedOn1);
+                tableContentsStyle.Append(primaryStyle1);
+                tableContentsStyle.Append(styleParagraphProperties5);
+                tableContentsStyle.Append(styleRunProperties2);
+                styles.Append(tableContentsStyle);
+            }
+
+            var tableHeadingStyle = styles.Elements<Style>()
+                .FirstOrDefault(s => s.StyleName?.Val?.Value == "TableHeading");
+            if (tableHeadingStyle == null)
+            {
+                tableHeadingStyle = new Style() {Type = StyleValues.Paragraph, StyleId = "TableHeading"};
+                StyleName styleName2 = new StyleName() {Val = "Table Heading"};
+                BasedOn basedOn2 = new BasedOn() {Val = "TableContents"};
+                PrimaryStyle primaryStyle2 = new PrimaryStyle();
+                StyleParagraphProperties styleParagraphProperties6 = new StyleParagraphProperties();
+                StyleRunProperties styleRunProperties3 = new StyleRunProperties();
+
+                tableHeadingStyle.Append(styleName2);
+                tableHeadingStyle.Append(basedOn2);
+                tableHeadingStyle.Append(primaryStyle2);
+                tableHeadingStyle.Append(styleParagraphProperties6);
+                tableHeadingStyle.Append(styleRunProperties3);
+                styles.Append(tableHeadingStyle);
             }
         }
 
@@ -29,22 +100,47 @@ namespace OpenOfficeWpfApp
             ChangeBlueToGreen(body);
             UndelineRedWords(body);
             AddPersonalInfo(body);
+            AddPageBreak();
+            AddTable(body);
         }
 
         private static void AddPersonalInfo(Body body)
         {
-            Paragraph paragraph1 = body.Elements<Paragraph>().ElementAt(2);
-            var paragraph2 = paragraph1.CloneNode(true);
-            body.InsertAfter(paragraph2, paragraph1);
+            var paragraph1 = body.Elements<Paragraph>().FirstOrDefault(p => !string.IsNullOrWhiteSpace(p.InnerText));
+            if (paragraph1 == null) body.InsertAt(CreateParagraph(),0);
+            
+            var newParagraph = CreateParagraph();
+            var newRun = CreateTextRun("Andriy Zymenko, Dnipro");
+            newParagraph.InsertAt(newRun, 0);
+            body.InsertAfter(newParagraph, paragraph1);
+            
+            body.InsertAfter(CreateParagraph(), newParagraph);
+        }
 
-            Run run = paragraph1.GetFirstChild<Run>();
-            RunProperties runProperties = run.GetFirstChild<RunProperties>();
-            Languages usLanguage = new Languages() { Val = "en-US" };
-            runProperties.Append(usLanguage);
-
-            Text text = new Text();
-            text.Text = "Andriy Zymenko, Dnipro";
-            run.Append(text);
+        private static Run CreateTextRun(string newText, string font = "Verdana", 
+            string fontSizeVal = "26", string language = "en-US", bool isBold = false)
+        {
+            var newRun = new Run();
+            RunProperties runProperties = new RunProperties();
+            RunFonts runFonts = new RunFonts() { Ascii = font, HighAnsi = font };
+            FontSize fontSize = new FontSize() { Val = fontSizeVal };
+            FontSizeComplexScript fontSizeComplexScript = new FontSizeComplexScript() { Val = fontSizeVal };
+            Languages languages = new Languages() { Val = language };
+            runProperties.Append(runFonts);
+            runProperties.Append(fontSize);
+            runProperties.Append(fontSizeComplexScript);
+            runProperties.Append(languages);
+            if (isBold)
+            {
+                Bold bold = new Bold();
+                BoldComplexScript boldComplexScript = new BoldComplexScript();
+                runProperties.Append(bold);
+                runProperties.Append(boldComplexScript);
+            }
+            newRun.Append(runProperties);
+            Text text = new Text { Text = newText };
+            newRun.Append(text);
+            return newRun;
         }
 
         private static void ChangeBlueToGreen(Body body)
@@ -75,17 +171,28 @@ namespace OpenOfficeWpfApp
             }
         }
 
-        private static void AddTable(Body body)
+
+        private static void AddPageBreak()
         {
             Run run84 = new Run();
             Break break1 = new Break() { Type = BreakValues.Page };
             run84.Append(break1);
-            Paragraph paragraph5 = new Paragraph();
 
+            Paragraph paragraph5 = CreateParagraph();
+            paragraph5.Append(run84);
+        }
+
+        private static Paragraph CreateParagraph()
+        {
+            var paragraph = new Paragraph();
             ParagraphProperties paragraphProperties3 = new ParagraphProperties();
             ParagraphStyleId paragraphStyleId1 = new ParagraphStyleId() { Val = "Normal" };
             WidowControl widowControl1 = new WidowControl();
-            SpacingBetweenLines spacingBetweenLines1 = new SpacingBetweenLines() { Line = "360", LineRule = LineSpacingRuleValues.Auto };
+            SpacingBetweenLines spacingBetweenLines1 = new SpacingBetweenLines()
+            {
+                Line = "360",
+                LineRule = LineSpacingRuleValues.Auto
+            };
             Indentation indentation1 = new Indentation() { Left = "0", Right = "0", Hanging = "0" };
             Justification justification1 = new Justification() { Val = JustificationValues.Both };
             ParagraphMarkRunProperties paragraphMarkRunProperties3 = new ParagraphMarkRunProperties();
@@ -96,40 +203,12 @@ namespace OpenOfficeWpfApp
             paragraphProperties3.Append(indentation1);
             paragraphProperties3.Append(justification1);
             paragraphProperties3.Append(paragraphMarkRunProperties3);
-            paragraph5.Append(paragraphProperties3);
-            //paragraph5.Append(run54);
-            //paragraph5.Append(run55);
-            //paragraph5.Append(run56);
-            //paragraph5.Append(run57);
-            //paragraph5.Append(run58);
-            //paragraph5.Append(run59);
-            //paragraph5.Append(run60);
-            //paragraph5.Append(run61);
-            //paragraph5.Append(run62);
-            //paragraph5.Append(run63);
-            //paragraph5.Append(run64);
-            //paragraph5.Append(run65);
-            //paragraph5.Append(run66);
-            //paragraph5.Append(run67);
-            //paragraph5.Append(run68);
-            //paragraph5.Append(run69);
-            //paragraph5.Append(run70);
-            //paragraph5.Append(run71);
-            //paragraph5.Append(run72);
-            //paragraph5.Append(run73);
-            //paragraph5.Append(run74);
-            //paragraph5.Append(run75);
-            //paragraph5.Append(run76);
-            //paragraph5.Append(run77);
-            //paragraph5.Append(run78);
-            //paragraph5.Append(run79);
-            //paragraph5.Append(run80);
-            //paragraph5.Append(run81);
-            //paragraph5.Append(run82);
-            //paragraph5.Append(run83);
-            paragraph5.Append(run84);
-            //body.InsertBefore(paragraph5, sectionProperties1);
+            paragraph.Append(paragraphProperties3);
+            return paragraph;
+        }
 
+        private static void AddTable(Body body)
+        {
             Table table1 = new Table();
 
             TableProperties tableProperties1 = new TableProperties();
@@ -2615,7 +2694,7 @@ namespace OpenOfficeWpfApp
             table1.Append(tableRow5);
             table1.Append(tableRow6);
             table1.Append(tableRow7);
-            //body.InsertBefore(table1, sectionProperties1);
+            body.AppendChild(table1);
 
             Paragraph paragraph39 = new Paragraph();
 
@@ -2649,115 +2728,9 @@ namespace OpenOfficeWpfApp
 
             paragraph39.Append(paragraphProperties37);
             paragraph39.Append(run118);
-            //body.InsertBefore(paragraph39, sectionProperties1);
+            body.InsertAfter(paragraph39, table1);
 
-            //    DocGrid docGrid1 = sectionProperties1.GetFirstChild<DocGrid>();
-            //docGrid1.CharacterSpace = new Int32Value() { InnerText = "4294961151" };
         }
 
-        //private void ChangeStyleDefinitionsPart1(StyleDefinitionsPart styleDefinitionsPart1)
-        //{
-        //    Styles styles1 = styleDefinitionsPart1.Styles;
-
-        //    DocDefaults docDefaults1 = styles1.GetFirstChild<DocDefaults>();
-        //    Style style1 = styles1.GetFirstChild<Style>();
-        //    Style style2 = styles1.Elements<Style>().ElementAt(1);
-        //    Style style3 = styles1.Elements<Style>().ElementAt(2);
-        //    Style style4 = styles1.Elements<Style>().ElementAt(3);
-        //    Style style5 = styles1.Elements<Style>().ElementAt(9);
-        //    Style style6 = styles1.Elements<Style>().ElementAt(13);
-        //    Style style7 = styles1.Elements<Style>().ElementAt(14);
-
-        //    RunPropertiesDefault runPropertiesDefault1 = docDefaults1.GetFirstChild<RunPropertiesDefault>();
-
-        //    RunPropertiesBaseStyle runPropertiesBaseStyle1 = runPropertiesDefault1.GetFirstChild<RunPropertiesBaseStyle>();
-
-        //    FontSizeComplexScript fontSizeComplexScript1 = runPropertiesBaseStyle1.GetFirstChild<FontSizeComplexScript>();
-
-        //    FontSize fontSize1 = new FontSize() { Val = "20" };
-        //    runPropertiesBaseStyle1.InsertBefore(fontSize1, fontSizeComplexScript1);
-
-        //    StyleParagraphProperties styleParagraphProperties1 = style1.GetFirstChild<StyleParagraphProperties>();
-        //    StyleRunProperties styleRunProperties1 = style1.GetFirstChild<StyleRunProperties>();
-
-        //    Justification justification1 = new Justification() { Val = JustificationValues.Left };
-        //    styleParagraphProperties1.Append(justification1);
-
-        //    Color color1 = styleRunProperties1.GetFirstChild<Color>();
-        //    color1.Val = "00000A";
-
-        //    NextParagraphStyle nextParagraphStyle1 = style2.GetFirstChild<NextParagraphStyle>();
-        //    StyleParagraphProperties styleParagraphProperties2 = style2.GetFirstChild<StyleParagraphProperties>();
-
-        //    nextParagraphStyle1.Remove();
-
-        //    NumberingProperties numberingProperties1 = styleParagraphProperties2.GetFirstChild<NumberingProperties>();
-        //    OutlineLevel outlineLevel1 = styleParagraphProperties2.Elements<OutlineLevel>().ElementAt(1);
-
-        //    numberingProperties1.Remove();
-        //    outlineLevel1.Remove();
-
-        //    NextParagraphStyle nextParagraphStyle2 = style3.GetFirstChild<NextParagraphStyle>();
-        //    StyleParagraphProperties styleParagraphProperties3 = style3.GetFirstChild<StyleParagraphProperties>();
-
-        //    nextParagraphStyle2.Remove();
-
-        //    NumberingProperties numberingProperties2 = styleParagraphProperties3.GetFirstChild<NumberingProperties>();
-        //    OutlineLevel outlineLevel2 = styleParagraphProperties3.Elements<OutlineLevel>().ElementAt(1);
-
-        //    numberingProperties2.Remove();
-        //    outlineLevel2.Remove();
-
-        //    NextParagraphStyle nextParagraphStyle3 = style4.GetFirstChild<NextParagraphStyle>();
-        //    StyleParagraphProperties styleParagraphProperties4 = style4.GetFirstChild<StyleParagraphProperties>();
-
-        //    nextParagraphStyle3.Remove();
-
-        //    NumberingProperties numberingProperties3 = styleParagraphProperties4.GetFirstChild<NumberingProperties>();
-        //    OutlineLevel outlineLevel3 = styleParagraphProperties4.Elements<OutlineLevel>().ElementAt(1);
-
-        //    numberingProperties3.Remove();
-        //    outlineLevel3.Remove();
-
-        //    NextParagraphStyle nextParagraphStyle4 = style5.GetFirstChild<NextParagraphStyle>();
-
-        //    nextParagraphStyle4.Remove();
-
-        //    NextParagraphStyle nextParagraphStyle5 = style6.GetFirstChild<NextParagraphStyle>();
-
-        //    nextParagraphStyle5.Remove();
-
-        //    NextParagraphStyle nextParagraphStyle6 = style7.GetFirstChild<NextParagraphStyle>();
-
-        //    nextParagraphStyle6.Remove();
-
-        //    Style style8 = new Style() { Type = StyleValues.Paragraph, StyleId = "TableContents" };
-        //    StyleName styleName1 = new StyleName() { Val = "Table Contents" };
-        //    BasedOn basedOn1 = new BasedOn() { Val = "Normal" };
-        //    PrimaryStyle primaryStyle1 = new PrimaryStyle();
-        //    StyleParagraphProperties styleParagraphProperties5 = new StyleParagraphProperties();
-        //    StyleRunProperties styleRunProperties2 = new StyleRunProperties();
-
-        //    style8.Append(styleName1);
-        //    style8.Append(basedOn1);
-        //    style8.Append(primaryStyle1);
-        //    style8.Append(styleParagraphProperties5);
-        //    style8.Append(styleRunProperties2);
-        //    styles1.Append(style8);
-
-        //    Style style9 = new Style() { Type = StyleValues.Paragraph, StyleId = "TableHeading" };
-        //    StyleName styleName2 = new StyleName() { Val = "Table Heading" };
-        //    BasedOn basedOn2 = new BasedOn() { Val = "TableContents" };
-        //    PrimaryStyle primaryStyle2 = new PrimaryStyle();
-        //    StyleParagraphProperties styleParagraphProperties6 = new StyleParagraphProperties();
-        //    StyleRunProperties styleRunProperties3 = new StyleRunProperties();
-
-        //    style9.Append(styleName2);
-        //    style9.Append(basedOn2);
-        //    style9.Append(primaryStyle2);
-        //    style9.Append(styleParagraphProperties6);
-        //    style9.Append(styleRunProperties3);
-        //    styles1.Append(style9);
-        //}
     }
 }
